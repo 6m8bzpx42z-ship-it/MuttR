@@ -12,6 +12,9 @@ setup(
         "pyobjc-framework-Cocoa>=10.0",
         "pyobjc-framework-Quartz>=10.0",
     ],
+    extras_require={
+        "parakeet": ["parakeet-mlx>=0.5.0"],
+    },
     entry_points={
         "console_scripts": [
             "muttr=muttr.app:main",
