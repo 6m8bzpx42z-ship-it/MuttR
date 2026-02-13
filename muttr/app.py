@@ -52,6 +52,19 @@ class MuttRApp:
         print(f"MuttR: Loading {engine_label} model...")
         threading.Thread(target=self.transcriber.load, daemon=True).start()
 
+        # Pre-download Parakeet model too so it's ready when the user switches
+        if self.transcriber.name != "parakeet":
+            def _preload_parakeet():
+                try:
+                    from muttr.transcriber import ParakeetBackend, _parakeet_available
+                    if _parakeet_available():
+                        print("MuttR: Pre-downloading Parakeet model in background...")
+                        pb = ParakeetBackend()
+                        pb.load()
+                except Exception:
+                    pass  # silently skip if parakeet-mlx not installed
+            threading.Thread(target=_preload_parakeet, daemon=True).start()
+
         self.overlay.setup()
         self.menubar.setup()
         self.hotkey.start()
@@ -106,74 +119,78 @@ class MuttRApp:
 
     def _transcribe_and_insert(self, audio, duration):
         """Run transcription and insertion off the main thread."""
-        engine = self.transcriber.name
+        try:
+            engine = self.transcriber.name
 
-        # Finish cadence tracking for this session
-        cadence = self._cadence_tracker
-        self._cadence_tracker = None
-        if cadence is not None:
+            # Finish cadence tracking for this session
+            cadence = self._cadence_tracker
+            self._cadence_tracker = None
+            if cadence is not None:
+                try:
+                    cadence.finish_session()
+                except Exception:
+                    pass
+
+            # Context stitching: build initial_prompt from clipboard + history
+            initial_prompt = ""
             try:
-                cadence.finish_session()
+                initial_prompt = build_context_prompt()
             except Exception:
                 pass
 
-        # Context stitching: build initial_prompt from clipboard + history
-        initial_prompt = ""
-        try:
-            initial_prompt = build_context_prompt()
-        except Exception:
-            pass
-
-        # Check if confidence review is enabled for Whisper
-        cfg = config.load()
-        want_confidence = (
-            cfg.get("confidence_review", False)
-            and engine == "whisper"
-        )
-
-        # Transcribe with optional context prompt and word timestamps
-        kwargs = {}
-        if initial_prompt:
-            kwargs["initial_prompt"] = initial_prompt
-        if want_confidence:
-            kwargs["word_timestamps"] = True
-            kwargs["_return_segments"] = True
-
-        raw_result = self.transcriber.transcribe(audio, **kwargs)
-
-        # Build TranscriptionResult with confidence data if available
-        if want_confidence and isinstance(raw_result, list):
-            segments = raw_result
-            words = extract_word_confidence(segments)
-            raw_text = " ".join(
-                seg.text.strip() for seg in segments
+            # Check if confidence review is enabled for Whisper
+            cfg = config.load()
+            want_confidence = (
+                cfg.get("confidence_review", False)
+                and engine == "whisper"
             )
-            result = TranscriptionResult(
-                text=raw_text,
-                words=words,
-                has_word_confidence=bool(words),
-            )
-        else:
-            raw_text = raw_result if isinstance(raw_result, str) else str(raw_result)
-            result = TranscriptionResult(text=raw_text)
 
-        cleaned = clean_text(result.text, level=self.cleanup_level)
+            # Transcribe with optional context prompt and word timestamps
+            kwargs = {}
+            if initial_prompt:
+                kwargs["initial_prompt"] = initial_prompt
+            if want_confidence:
+                kwargs["word_timestamps"] = True
+                kwargs["_return_segments"] = True
 
-        # Log to history
-        try:
-            history.add_entry(
-                raw_text=result.text or "",
-                cleaned_text=cleaned or "",
-                engine=engine,
-                duration_s=round(duration, 2),
-            )
-        except Exception:
-            pass  # never let history logging break the pipeline
+            raw_result = self.transcriber.transcribe(audio, **kwargs)
 
-        if cleaned:
-            self._perform_on_main(lambda: insert_text(cleaned))
+            # Build TranscriptionResult with confidence data if available
+            if want_confidence and isinstance(raw_result, list):
+                segments = raw_result
+                words = extract_word_confidence(segments)
+                raw_text = " ".join(
+                    seg.text.strip() for seg in segments
+                )
+                result = TranscriptionResult(
+                    text=raw_text,
+                    words=words,
+                    has_word_confidence=bool(words),
+                )
+            else:
+                raw_text = raw_result if isinstance(raw_result, str) else str(raw_result)
+                result = TranscriptionResult(text=raw_text)
 
-        self._perform_on_main(self.overlay.hide)
+            cleaned = clean_text(result.text, level=self.cleanup_level)
+
+            # Log to history
+            try:
+                history.add_entry(
+                    raw_text=result.text or "",
+                    cleaned_text=cleaned or "",
+                    engine=engine,
+                    duration_s=round(duration, 2),
+                )
+            except Exception:
+                pass  # never let history logging break the pipeline
+
+            if cleaned:
+                self._perform_on_main(lambda: insert_text(cleaned))
+
+        except Exception as e:
+            print(f"MuttR: Transcription error: {e}")
+        finally:
+            self._perform_on_main(self.overlay.hide)
 
     def _start_level_updates(self):
         """Periodically push audio levels to the overlay and cadence tracker."""

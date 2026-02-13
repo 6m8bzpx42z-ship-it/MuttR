@@ -96,6 +96,7 @@ class ParakeetBackend:
     def __init__(self, model_id: str = PARAKEET_MODEL):
         self._model_id = model_id
         self._model = None
+        self._loading = False
 
     @property
     def name(self) -> str:
@@ -104,8 +105,12 @@ class ParakeetBackend:
     def load(self) -> None:
         from parakeet_mlx import from_pretrained
 
+        self._loading = True
+        print(f"MuttR: Downloading/loading Parakeet model {self._model_id} (this may take a while on first use)...")
         log.info("Loading Parakeet model %s ...", self._model_id)
         self._model = from_pretrained(self._model_id)
+        self._loading = False
+        print("MuttR: Parakeet model ready.")
         log.info("Parakeet model loaded.")
 
     def transcribe(self, audio: np.ndarray, **kwargs) -> str:
