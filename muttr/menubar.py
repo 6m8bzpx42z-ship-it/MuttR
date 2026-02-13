@@ -52,10 +52,13 @@ TAB_HISTORY = 1
 TAB_ACCOUNT = 2
 
 
-class SettingsWindowController:
+class SettingsWindowController(Cocoa.NSObject):
     """Manages a native NSWindow with tabbed settings panels."""
 
-    def __init__(self):
+    def init(self):
+        self = objc.super(SettingsWindowController, self).init()
+        if self is None:
+            return None
         self._window = None
         self._tab_view = None
         self._history_table = None
@@ -65,12 +68,17 @@ class SettingsWindowController:
         self._cleanup_label = None
         self._engine_popup = None
         self._model_popup = None
-        # Account fields
         self._email_field = None
         self._name_field = None
         self._sign_in_button = None
         self._account_status_label = None
+        self._delay_field = None
+        self._auto_copy_check = None
+        self._sound_check = None
+        self._overlay_check = None
+        return self
 
+    @objc.python_method
     def show(self):
         """Show the settings window, creating it if needed."""
         if self._window is None:
@@ -80,6 +88,7 @@ class SettingsWindowController:
         self._window.makeKeyAndOrderFront_(None)
         Cocoa.NSApp.activateIgnoringOtherApps_(True)
 
+    @objc.python_method
     def _build_window(self):
         style = (
             Cocoa.NSWindowStyleMaskTitled
@@ -125,6 +134,7 @@ class SettingsWindowController:
     # General Tab
     # ------------------------------------------------------------------
 
+    @objc.python_method
     def _build_general_tab(self):
         view = Cocoa.NSView.alloc().initWithFrame_(
             Cocoa.NSMakeRect(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT - 60)
@@ -159,7 +169,7 @@ class SettingsWindowController:
         self._cleanup_slider.setAllowsTickMarkValuesOnly_(True)
         self._cleanup_slider.setIntValue_(cfg["cleanup_level"])
         self._cleanup_slider.setTarget_(self)
-        self._cleanup_slider.setAction_(objc.selector(self._cleanup_slider_changed_, signature=b"v@:@"))
+        self._cleanup_slider.setAction_("cleanupSliderChanged:")
         view.addSubview_(self._cleanup_slider)
         y -= 16
 
@@ -188,7 +198,7 @@ class SettingsWindowController:
         engine_idx = 0 if cfg.get("transcription_engine", "whisper") == "whisper" else 1
         self._engine_popup.selectItemAtIndex_(engine_idx)
         self._engine_popup.setTarget_(self)
-        self._engine_popup.setAction_(objc.selector(self._engine_changed_, signature=b"v@:@"))
+        self._engine_popup.setAction_("engineChanged:")
         view.addSubview_(self._engine_popup)
         y -= 32
 
@@ -205,7 +215,7 @@ class SettingsWindowController:
         model_idx = 0 if cfg["model"] == "base.en" else 1
         self._model_popup.selectItemAtIndex_(model_idx)
         self._model_popup.setTarget_(self)
-        self._model_popup.setAction_(objc.selector(self._model_changed_, signature=b"v@:@"))
+        self._model_popup.setAction_("modelChanged:")
         view.addSubview_(self._model_popup)
         y -= 20
 
@@ -244,7 +254,7 @@ class SettingsWindowController:
         save_delay_btn.setTitle_("Save")
         save_delay_btn.setBezelStyle_(Cocoa.NSBezelStyleRounded)
         save_delay_btn.setTarget_(self)
-        save_delay_btn.setAction_(objc.selector(self._save_delay_, signature=b"v@:@"))
+        save_delay_btn.setAction_("saveDelay:")
         view.addSubview_(save_delay_btn)
 
         return view
@@ -253,6 +263,7 @@ class SettingsWindowController:
     # History Tab
     # ------------------------------------------------------------------
 
+    @objc.python_method
     def _build_history_tab(self):
         view = Cocoa.NSView.alloc().initWithFrame_(
             Cocoa.NSMakeRect(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT - 60)
@@ -267,7 +278,7 @@ class SettingsWindowController:
         )
         self._search_field.setPlaceholderString_("Search transcriptions...")
         self._search_field.setTarget_(self)
-        self._search_field.setAction_(objc.selector(self._search_changed_, signature=b"v@:@"))
+        self._search_field.setAction_("searchChanged:")
         view.addSubview_(self._search_field)
 
         clear_btn = Cocoa.NSButton.alloc().initWithFrame_(
@@ -276,7 +287,7 @@ class SettingsWindowController:
         clear_btn.setTitle_("Clear All")
         clear_btn.setBezelStyle_(Cocoa.NSBezelStyleRounded)
         clear_btn.setTarget_(self)
-        clear_btn.setAction_(objc.selector(self._clear_history_, signature=b"v@:@"))
+        clear_btn.setAction_("clearHistory:")
         view.addSubview_(clear_btn)
 
         # Scroll view with table
@@ -321,6 +332,7 @@ class SettingsWindowController:
     # Account Tab
     # ------------------------------------------------------------------
 
+    @objc.python_method
     def _build_account_tab(self):
         view = Cocoa.NSView.alloc().initWithFrame_(
             Cocoa.NSMakeRect(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT - 60)
@@ -376,7 +388,7 @@ class SettingsWindowController:
         )
         self._sign_in_button.setBezelStyle_(Cocoa.NSBezelStyleRounded)
         self._sign_in_button.setTarget_(self)
-        self._sign_in_button.setAction_(objc.selector(self._toggle_sign_in_, signature=b"v@:@"))
+        self._sign_in_button.setAction_("toggleSignIn:")
         view.addSubview_(self._sign_in_button)
 
         y -= 50
@@ -394,7 +406,7 @@ class SettingsWindowController:
         self._auto_copy_check.setButtonType_(Cocoa.NSButtonTypeSwitch)
         self._auto_copy_check.setTitle_("Auto-copy transcriptions to clipboard")
         self._auto_copy_check.setTarget_(self)
-        self._auto_copy_check.setAction_(objc.selector(self._pref_changed_, signature=b"v@:@"))
+        self._auto_copy_check.setAction_("prefChanged:")
         view.addSubview_(self._auto_copy_check)
         y -= 26
 
@@ -404,7 +416,7 @@ class SettingsWindowController:
         self._sound_check.setButtonType_(Cocoa.NSButtonTypeSwitch)
         self._sound_check.setTitle_("Sound feedback on transcription complete")
         self._sound_check.setTarget_(self)
-        self._sound_check.setAction_(objc.selector(self._pref_changed_, signature=b"v@:@"))
+        self._sound_check.setAction_("prefChanged:")
         view.addSubview_(self._sound_check)
         y -= 26
 
@@ -414,35 +426,31 @@ class SettingsWindowController:
         self._overlay_check.setButtonType_(Cocoa.NSButtonTypeSwitch)
         self._overlay_check.setTitle_("Show recording overlay")
         self._overlay_check.setTarget_(self)
-        self._overlay_check.setAction_(objc.selector(self._pref_changed_, signature=b"v@:@"))
+        self._overlay_check.setAction_("prefChanged:")
         view.addSubview_(self._overlay_check)
 
         return view
 
     # ------------------------------------------------------------------
-    # Actions
+    # Actions (ObjC-visible for menu/control targets)
     # ------------------------------------------------------------------
 
-    @objc.python_method
-    def _cleanup_slider_changed_(self, sender):
+    def cleanupSliderChanged_(self, sender):
         val = int(sender.intValue())
         config.set_value("cleanup_level", val)
         names = ["Light", "Moderate", "Aggressive"]
         self._cleanup_label.setStringValue_(names[val])
         self._cleanup_label.sizeToFit()
 
-    @objc.python_method
-    def _engine_changed_(self, sender):
+    def engineChanged_(self, sender):
         engines = ["whisper", "parakeet"]
         config.set_value("transcription_engine", engines[sender.indexOfSelectedItem()])
 
-    @objc.python_method
-    def _model_changed_(self, sender):
+    def modelChanged_(self, sender):
         models = ["base.en", "small.en"]
         config.set_value("model", models[sender.indexOfSelectedItem()])
 
-    @objc.python_method
-    def _save_delay_(self, sender):
+    def saveDelay_(self, sender):
         try:
             val = int(self._delay_field.intValue())
             val = max(10, min(500, val))
@@ -451,8 +459,7 @@ class SettingsWindowController:
         except (ValueError, TypeError):
             pass
 
-    @objc.python_method
-    def _search_changed_(self, sender):
+    def searchChanged_(self, sender):
         query = str(self._search_field.stringValue()).strip()
         if query:
             self._history_data = history.search(query)
@@ -460,8 +467,7 @@ class SettingsWindowController:
             self._history_data = history.get_recent()
         self._history_table.reloadData()
 
-    @objc.python_method
-    def _clear_history_(self, sender):
+    def clearHistory_(self, sender):
         alert = Cocoa.NSAlert.alloc().init()
         alert.setMessageText_("Clear All History?")
         alert.setInformativeText_(
@@ -474,8 +480,7 @@ class SettingsWindowController:
             history.clear_all()
             self._refresh_history()
 
-    @objc.python_method
-    def _toggle_sign_in_(self, sender):
+    def toggleSignIn_(self, sender):
         acct = account.load_account()
         if acct["signed_in"]:
             account.sign_out()
@@ -487,8 +492,7 @@ class SettingsWindowController:
             account.sign_in(email, name)
         self._refresh_account_ui()
 
-    @objc.python_method
-    def _pref_changed_(self, sender):
+    def prefChanged_(self, sender):
         prefs = {
             "auto_copy": bool(self._auto_copy_check.state()),
             "sound_feedback": bool(self._sound_check.state()),
@@ -500,11 +504,13 @@ class SettingsWindowController:
     # Refresh helpers
     # ------------------------------------------------------------------
 
+    @objc.python_method
     def _refresh_history(self):
         self._history_data = history.get_recent()
         if self._history_table:
             self._history_table.reloadData()
 
+    @objc.python_method
     def _refresh_account_ui(self):
         acct = account.load_account()
         if acct["signed_in"]:
@@ -560,15 +566,21 @@ class SettingsWindowController:
 # Menu Bar Status Item
 # ---------------------------------------------------------------------------
 
-class MenuBar:
+class MenuBar(Cocoa.NSObject):
     """NSStatusBar item with dropdown menu that opens the settings window."""
 
-    def __init__(self):
+    def init(self):
+        self = objc.super(MenuBar, self).init()
+        if self is None:
+            return None
         self._status_item = None
-        self._settings_controller = SettingsWindowController()
+        self._settings_controller = None
+        return self
 
     def setup(self):
         """Create the status bar item. Must be called on the main thread."""
+        self._settings_controller = SettingsWindowController.alloc().init()
+
         status_bar = Cocoa.NSStatusBar.systemStatusBar()
         self._status_item = status_bar.statusItemWithLength_(
             Cocoa.NSVariableStatusItemLength
@@ -580,7 +592,7 @@ class MenuBar:
         menu = Cocoa.NSMenu.alloc().init()
 
         settings_item = Cocoa.NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(
-            "Settings...", objc.selector(self._open_settings_, signature=b"v@:@"), ","
+            "Settings...", "openSettings:", ","
         )
         settings_item.setTarget_(self)
         menu.addItem_(settings_item)
@@ -588,17 +600,15 @@ class MenuBar:
         menu.addItem_(Cocoa.NSMenuItem.separatorItem())
 
         quit_item = Cocoa.NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(
-            "Quit MuttR", objc.selector(self._quit_, signature=b"v@:@"), "q"
+            "Quit MuttR", "quitApp:", "q"
         )
         quit_item.setTarget_(self)
         menu.addItem_(quit_item)
 
         self._status_item.setMenu_(menu)
 
-    @objc.python_method
-    def _open_settings_(self, sender):
+    def openSettings_(self, sender):
         self._settings_controller.show()
 
-    @objc.python_method
-    def _quit_(self, sender):
+    def quitApp_(self, sender):
         Cocoa.NSApp.terminate_(None)

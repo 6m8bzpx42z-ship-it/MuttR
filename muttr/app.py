@@ -31,7 +31,7 @@ class MuttRApp:
             model_size=self._model_size,
         )
         self.overlay = Overlay()
-        self.menubar = MenuBar()
+        self.menubar = MenuBar.alloc().init()
         self.hotkey = HotkeyListener(
             on_key_down=self._on_fn_down,
             on_key_up=self._on_fn_up,
