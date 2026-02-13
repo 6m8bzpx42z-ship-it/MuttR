@@ -47,23 +47,31 @@ class MuttRApp:
         app = Cocoa.NSApplication.sharedApplication()
         app.setActivationPolicy_(Cocoa.NSApplicationActivationPolicyAccessory)
 
-        # Load transcription model in background so startup isn't blocked
+        # Load selected engine first, then preload the other in background
         engine_label = self.transcriber.name.capitalize()
         print(f"MuttR: Loading {engine_label} model...")
         threading.Thread(target=self.transcriber.load, daemon=True).start()
 
-        # Pre-download Parakeet model too so it's ready when the user switches
-        if self.transcriber.name != "parakeet":
-            def _preload_parakeet():
+        # Preload the other engine so switching is instant
+        def _preload_other():
+            from muttr.transcriber import (
+                WhisperBackend, ParakeetBackend, _parakeet_available,
+            )
+            if self.transcriber.name != "whisper":
                 try:
-                    from muttr.transcriber import ParakeetBackend, _parakeet_available
-                    if _parakeet_available():
-                        print("MuttR: Pre-downloading Parakeet model in background...")
-                        pb = ParakeetBackend()
-                        pb.load()
+                    print("MuttR: Pre-downloading Whisper model in background...")
+                    wb = WhisperBackend(model_size=self._model_size)
+                    wb.load()
                 except Exception:
-                    pass  # silently skip if parakeet-mlx not installed
-            threading.Thread(target=_preload_parakeet, daemon=True).start()
+                    pass
+            if self.transcriber.name != "parakeet" and _parakeet_available():
+                try:
+                    print("MuttR: Pre-downloading Parakeet model in background...")
+                    pb = ParakeetBackend()
+                    pb.load()
+                except Exception:
+                    pass
+        threading.Thread(target=_preload_other, daemon=True).start()
 
         self.overlay.setup()
         self.menubar.setup()
