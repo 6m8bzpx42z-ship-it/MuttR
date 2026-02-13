@@ -23,3 +23,9 @@ venv/
 # Whisper models (cached by faster-whisper)
 *.bin
 *.ct2
+
+# Build artifacts
+MuttR.app/
+
+# Claude
+.agents/
