@@ -491,34 +491,37 @@ class SettingsWindowController(Cocoa.NSObject):
         vs = _VStack(container, 1200 - 20, left=CONTENT_PAD, width=card_w)
 
         # Card 1 — Preferences
-        lbl = _section_label("Preferences")
+        lbl = _section_label("General")
         vs.add(lbl, height=16)
         vs.space(6)
 
         def prefs_builder(cvs, w):
             row1, self._auto_copy_switch = _toggle_row(
-                "Auto-copy to clipboard",
-                prefs.get("auto_copy", True), self, "prefChanged:", w)
-            cvs.add(row1, height=40)
+                "Copy After Recording",
+                prefs.get("auto_copy", True), self, "prefChanged:", w,
+                description="Automatically copy transcribed text so you can paste it right away")
+            cvs.add(row1, height=44)
             cvs.add(_card_separator(w), height=1)
 
             row2, self._sound_switch = _toggle_row(
-                "Sound feedback",
-                prefs.get("sound_feedback", False), self, "prefChanged:", w)
-            cvs.add(row2, height=40)
+                "Sound Effects",
+                prefs.get("sound_feedback", False), self, "prefChanged:", w,
+                description="Play a sound when recording starts and stops")
+            cvs.add(row2, height=44)
             cvs.add(_card_separator(w), height=1)
 
             row3, self._overlay_switch = _toggle_row(
-                "Recording overlay",
-                prefs.get("show_overlay", True), self, "prefChanged:", w)
-            cvs.add(row3, height=40)
+                "Show Overlay",
+                prefs.get("show_overlay", True), self, "prefChanged:", w,
+                description="Display a visual indicator on screen while recording")
+            cvs.add(row3, height=44)
 
         card1 = _card(card_w, prefs_builder)
         vs.add(card1, height=card1.frame().size.height)
         vs.space(20)
 
         # Card 2 — Paste Delay
-        lbl2 = _section_label("Paste Delay")
+        lbl2 = _section_label("Paste Timing")
         vs.add(lbl2, height=16)
         vs.space(6)
 
@@ -542,7 +545,7 @@ class SettingsWindowController(Cocoa.NSObject):
             cvs.add(self._delay_slider, height=22)
             cvs.space(4)
 
-            desc = _label("Delay before pasting transcribed text (10\u2013500 ms)",
+            desc = _label("How long to wait before pasting — increase if text gets pasted in the wrong place",
                           font_size=11, color=Cocoa.NSColor.tertiaryLabelColor())
             cvs.add(desc, height=14)
 
@@ -567,14 +570,14 @@ class SettingsWindowController(Cocoa.NSObject):
         vs = _VStack(container, 2000 - 20, left=CONTENT_PAD, width=card_w)
 
         # Card 1 — Model
-        lbl1 = _section_label("Whisper Model")
+        lbl1 = _section_label("Speech Engine")
         vs.add(lbl1, height=16)
         vs.space(6)
 
         def model_builder(cvs, w):
             row_h = 36
             row = Cocoa.NSView.alloc().initWithFrame_(Cocoa.NSMakeRect(0, 0, w, row_h))
-            lbl = _label("Model Size", font_size=13)
+            lbl = _label("Quality", font_size=13)
             lbl.setFrameOrigin_(Cocoa.NSMakePoint(0, (row_h - lbl.frame().size.height) / 2))
             row.addSubview_(lbl)
 
@@ -590,7 +593,7 @@ class SettingsWindowController(Cocoa.NSObject):
             cvs.add(row, height=row_h)
             cvs.space(4)
 
-            desc = _label("base.en is faster; small.en is more accurate but uses more memory.",
+            desc = _label("Choose speed (base.en) or accuracy (small.en) for transcription",
                           font_size=11, color=Cocoa.NSColor.tertiaryLabelColor())
             cvs.add(desc, height=14)
 
@@ -599,7 +602,7 @@ class SettingsWindowController(Cocoa.NSObject):
         vs.space(20)
 
         # Card 2 — Cleanup
-        lbl2 = _section_label("Cleanup")
+        lbl2 = _section_label("Text Cleanup")
         vs.add(lbl2, height=16)
         vs.space(6)
 
@@ -640,42 +643,47 @@ class SettingsWindowController(Cocoa.NSObject):
                 t.setFrameOrigin_(Cocoa.NSMakePoint(x, 0))
                 tick_row.addSubview_(t)
             cvs.add(tick_row, height=14)
+            cvs.space(6)
+
+            desc = _label("How much filler words and repeated phrases are removed from your text",
+                          font_size=11, color=Cocoa.NSColor.tertiaryLabelColor())
+            cvs.add(desc, height=14)
 
         card2 = _card(card_w, cleanup_builder)
         vs.add(card2, height=card2.frame().size.height)
         vs.space(20)
 
         # Card 3 — Intelligence
-        lbl3 = _section_label("Intelligence")
+        lbl3 = _section_label("Smart Features")
         vs.add(lbl3, height=16)
         vs.space(6)
 
         def intel_builder(cvs, w):
             r1, self._context_stitch_switch = _toggle_row(
-                "Context Stitching", cfg.get("context_stitching", True),
+                "Smart Context", cfg.get("context_stitching", True),
                 self, "contextStitchChanged:", w,
-                description="Use clipboard + history to improve accuracy")
+                description="Use what you recently typed to improve accuracy")
             cvs.add(r1, height=44)
             cvs.add(_card_separator(w), height=1)
 
             r2, self._adaptive_silence_switch = _toggle_row(
-                "Adaptive Silence", cfg.get("adaptive_silence", True),
+                "Auto-Stop Recording", cfg.get("adaptive_silence", True),
                 self, "adaptiveSilenceChanged:", w,
-                description="Learn your speaking cadence for auto-stop")
+                description="Automatically stop when you finish speaking")
             cvs.add(r2, height=44)
             cvs.add(_card_separator(w), height=1)
 
             r3, self._confidence_review_switch = _toggle_row(
-                "Confidence Review", cfg.get("confidence_review", False),
+                "Highlight Uncertain Words", cfg.get("confidence_review", False),
                 self, "confidenceReviewChanged:", w,
-                description="Show heatmap for low-confidence words")
+                description="Mark words the app is less sure about so you can review them")
             cvs.add(r3, height=44)
             cvs.add(_card_separator(w), height=1)
 
             r4, self._cadence_feedback_switch = _toggle_row(
-                "Cadence Coaching", cfg.get("cadence_feedback", True),
+                "Speaking Tips", cfg.get("cadence_feedback", True),
                 self, "cadenceFeedbackChanged:", w,
-                description="Speech quality feedback after transcription")
+                description="Get tips on pacing and clarity after each recording")
             cvs.add(r4, height=44)
 
         card3 = _card(card_w, intel_builder)
@@ -683,19 +691,20 @@ class SettingsWindowController(Cocoa.NSObject):
         vs.space(20)
 
         # Card 4 — Ghostwriter
-        lbl4 = _section_label("Ghostwriter")
+        lbl4 = _section_label("Live Preview")
         vs.add(lbl4, height=16)
         vs.space(6)
 
         def ghost_builder(cvs, w):
             r1, self._ghostwriter_switch = _toggle_row(
-                "Enabled", cfg.get("ghostwriter_enabled", True),
-                self, "ghostwriterEnabledChanged:", w)
-            cvs.add(r1, height=40)
+                "Live Preview", cfg.get("ghostwriter_enabled", True),
+                self, "ghostwriterEnabledChanged:", w,
+                description="See your words appear as you speak")
+            cvs.add(r1, height=44)
             cvs.add(_card_separator(w), height=1)
             cvs.space(8)
 
-            lbl = _label("Selection Mode", font_size=12,
+            lbl = _label("Show text by", font_size=12,
                          color=Cocoa.NSColor.secondaryLabelColor())
             cvs.add(lbl, height=16)
             cvs.space(8)
@@ -721,14 +730,14 @@ class SettingsWindowController(Cocoa.NSObject):
         vs.space(20)
 
         # Card 5 — Murmur Mode
-        lbl5 = _section_label("Murmur Mode")
+        lbl5 = _section_label("Quiet Voice")
         vs.add(lbl5, height=16)
         vs.space(6)
 
         def murmur_builder(cvs, w):
             # Gain
             gain_row = Cocoa.NSView.alloc().initWithFrame_(Cocoa.NSMakeRect(0, 0, w, 20))
-            gl = _label("Gain", font_size=13)
+            gl = _label("Volume Boost", font_size=13)
             gl.setFrameOrigin_(Cocoa.NSMakePoint(0, 0))
             gain_row.addSubview_(gl)
             self._murmur_gain_label = _label(
@@ -749,11 +758,16 @@ class SettingsWindowController(Cocoa.NSObject):
             self._murmur_gain_slider.setTarget_(self)
             self._murmur_gain_slider.setAction_("murmurGainChanged:")
             cvs.add(self._murmur_gain_slider, height=22)
+            cvs.space(4)
+
+            gain_desc = _label("Amplify quiet speech so it can be recognized",
+                               font_size=11, color=Cocoa.NSColor.tertiaryLabelColor())
+            cvs.add(gain_desc, height=14)
             cvs.space(14)
 
             # Noise Gate
             gate_row = Cocoa.NSView.alloc().initWithFrame_(Cocoa.NSMakeRect(0, 0, w, 20))
-            nl = _label("Noise Gate", font_size=13)
+            nl = _label("Background Noise Filter", font_size=13)
             nl.setFrameOrigin_(Cocoa.NSMakePoint(0, 0))
             gate_row.addSubview_(nl)
             self._murmur_gate_label = _label(
@@ -774,11 +788,16 @@ class SettingsWindowController(Cocoa.NSObject):
             self._murmur_gate_slider.setTarget_(self)
             self._murmur_gate_slider.setAction_("murmurGateChanged:")
             cvs.add(self._murmur_gate_slider, height=22)
+            cvs.space(4)
+
+            gate_desc = _label("Ignore sounds below this level to reduce background noise",
+                               font_size=11, color=Cocoa.NSColor.tertiaryLabelColor())
+            cvs.add(gate_desc, height=14)
             cvs.space(14)
 
             # Min Utterance
             utt_row = Cocoa.NSView.alloc().initWithFrame_(Cocoa.NSMakeRect(0, 0, w, 20))
-            ul = _label("Min Utterance", font_size=13)
+            ul = _label("Minimum Word Length", font_size=13)
             ul.setFrameOrigin_(Cocoa.NSMakePoint(0, 0))
             utt_row.addSubview_(ul)
             self._murmur_utterance_label = _label(
@@ -799,6 +818,11 @@ class SettingsWindowController(Cocoa.NSObject):
             self._murmur_utterance_slider.setTarget_(self)
             self._murmur_utterance_slider.setAction_("murmurUtteranceChanged:")
             cvs.add(self._murmur_utterance_slider, height=22)
+            cvs.space(4)
+
+            utt_desc = _label("Ignore very short sounds to avoid picking up clicks or taps",
+                              font_size=11, color=Cocoa.NSColor.tertiaryLabelColor())
+            cvs.add(utt_desc, height=14)
 
         card5 = _card(card_w, murmur_builder)
         vs.add(card5, height=card5.frame().size.height)
@@ -827,7 +851,7 @@ class SettingsWindowController(Cocoa.NSObject):
         self._search_field = Cocoa.NSSearchField.alloc().initWithFrame_(
             Cocoa.NSMakeRect(CONTENT_PAD, bar_y, search_w, 28)
         )
-        self._search_field.setPlaceholderString_("Search transcriptions\u2026")
+        self._search_field.setPlaceholderString_("Search your recordings\u2026")
         self._search_field.setTarget_(self)
         self._search_field.setAction_("searchChanged:")
         self._search_field.setAutoresizingMask_(
@@ -1029,7 +1053,7 @@ class SettingsWindowController(Cocoa.NSObject):
         vs.space(20)
 
         # Card 2 — Credentials (hidden when signed in)
-        lbl2 = _section_label("Credentials")
+        lbl2 = _section_label("Sign In")
         vs.add(lbl2, height=16)
         vs.space(6)
 
@@ -1094,9 +1118,9 @@ class SettingsWindowController(Cocoa.NSObject):
 
     def clearHistory_(self, sender):
         alert = Cocoa.NSAlert.alloc().init()
-        alert.setMessageText_("Clear All History?")
+        alert.setMessageText_("Delete All History?")
         alert.setInformativeText_(
-            "This will permanently delete all transcription history. This cannot be undone."
+            "All your saved recordings will be permanently deleted. You cannot undo this."
         )
         alert.addButtonWithTitle_("Clear All")
         alert.addButtonWithTitle_("Cancel")
@@ -1175,7 +1199,7 @@ class SettingsWindowController(Cocoa.NSObject):
     def _update_history_count(self):
         if self._history_count_label:
             total = history.count()
-            noun = "transcription" if total == 1 else "transcriptions"
+            noun = "recording" if total == 1 else "recordings"
             self._history_count_label.setStringValue_(f"{total} {noun}")
 
     @objc.python_method
