@@ -42,15 +42,17 @@ _WAVE_W = 140
 _WAVE_H = 44
 
 # Sprite animation dimensions
-_SPRITE_W = 100
-_SPRITE_H = 100
+_SPRITE_W = 140
+_SPRITE_H = 140
+_SPRITE_IMG_H = 110   # space for the dog
+_SPRITE_LABEL_H = 24  # space for the status text
 
 CORNER_RADIUS = 22
 BAR_COUNT = 5
 BG_COLOR = (0.15, 0.15, 0.15, 0.85)
 
 # Animation rate for sprite frames (fps)
-SPRITE_FPS = 10
+SPRITE_FPS = 3
 
 
 # ---------------------------------------------------------------------------
@@ -183,6 +185,8 @@ class SpriteView(Cocoa.NSView):
             return
 
         bounds = self.bounds()
+        w = bounds.size.width
+        h = bounds.size.height
 
         # Draw rounded background
         path = Cocoa.NSBezierPath.bezierPathWithRoundedRect_xRadius_yRadius_(
@@ -192,26 +196,47 @@ class SpriteView(Cocoa.NSView):
         bg.setFill()
         path.fill()
 
-        # Clip to rounded rect so the sprite doesn't bleed outside
+        Cocoa.NSGraphicsContext.saveGraphicsState()
         path.addClip()
 
-        # Draw current frame centered
+        # Draw current frame in upper area (above label)
         img = self._frames[self._frame_idx]
         img_size = img.size()
-        # Scale to fit within bounds while preserving aspect ratio
-        scale = min(
-            bounds.size.width / img_size.width,
-            bounds.size.height / img_size.height,
-        )
+        img_area_h = h - _SPRITE_LABEL_H
+        scale = min(w / img_size.width, img_area_h / img_size.height)
         draw_w = img_size.width * scale
         draw_h = img_size.height * scale
-        draw_x = (bounds.size.width - draw_w) / 2
-        draw_y = (bounds.size.height - draw_h) / 2
+        draw_x = (w - draw_w) / 2
+        draw_y = _SPRITE_LABEL_H + (img_area_h - draw_h) / 2
 
         draw_rect = Cocoa.NSMakeRect(draw_x, draw_y, draw_w, draw_h)
         img.drawInRect_fromRect_operation_fraction_(
             draw_rect, Cocoa.NSZeroRect, Cocoa.NSCompositingOperationSourceOver, 1.0
         )
+
+        # Draw status label at bottom
+        if self._state == "recording":
+            label = "Listening..."
+        else:
+            label = "Working..."
+
+        attrs = {
+            Cocoa.NSFontAttributeName: Cocoa.NSFont.systemFontOfSize_weight_(
+                11, Cocoa.NSFontWeightMedium
+            ),
+            Cocoa.NSForegroundColorAttributeName: Cocoa.NSColor.colorWithCalibratedRed_green_blue_alpha_(
+                1.0, 1.0, 1.0, 0.7
+            ),
+        }
+        attr_str = Cocoa.NSAttributedString.alloc().initWithString_attributes_(
+            label, attrs
+        )
+        size = attr_str.size()
+        label_x = (w - size.width) / 2
+        label_y = (_SPRITE_LABEL_H - size.height) / 2
+        attr_str.drawAtPoint_(Cocoa.NSMakePoint(label_x, label_y))
+
+        Cocoa.NSGraphicsContext.restoreGraphicsState()
 
 
 # ---------------------------------------------------------------------------
