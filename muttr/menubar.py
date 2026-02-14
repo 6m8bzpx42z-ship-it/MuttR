@@ -1,5 +1,7 @@
 """Menu bar status item + settings window with history and account panels."""
 
+import os
+
 import Cocoa
 import objc
 
@@ -308,8 +310,6 @@ class SettingsWindowController(Cocoa.NSObject):
         self._auto_copy_switch = None
         self._sound_switch = None
         self._overlay_switch = None
-        self._delay_slider = None
-        self._delay_label = None
 
         # Transcription controls
         self._model_popup = None
@@ -318,10 +318,6 @@ class SettingsWindowController(Cocoa.NSObject):
         self._cleanup_label = None
         self._context_stitch_switch = None
         self._adaptive_silence_switch = None
-        self._confidence_review_switch = None
-        self._cadence_feedback_switch = None
-        self._ghostwriter_switch = None
-        self._ghostwriter_seg = None
         self._murmur_gain_slider = None
         self._murmur_gain_label = None
         self._murmur_gate_slider = None
@@ -518,39 +514,6 @@ class SettingsWindowController(Cocoa.NSObject):
 
         card1 = _card(card_w, prefs_builder)
         vs.add(card1, height=card1.frame().size.height)
-        vs.space(20)
-
-        # Card 2 — Paste Delay
-        lbl2 = _section_label("Paste Timing")
-        vs.add(lbl2, height=16)
-        vs.space(6)
-
-        def delay_builder(cvs, w):
-            self._delay_label = _label(f"{cfg['paste_delay_ms']} ms", font_size=13,
-                                       color=Cocoa.NSColor.labelColor(),
-                                       weight=Cocoa.NSFontWeightMedium)
-            self._delay_label.setAlignment_(Cocoa.NSTextAlignmentRight)
-            self._delay_label.setFrame_(Cocoa.NSMakeRect(0, 0, w, 20))
-            cvs.add(self._delay_label, height=20)
-            cvs.space(6)
-
-            self._delay_slider = Cocoa.NSSlider.alloc().initWithFrame_(
-                Cocoa.NSMakeRect(0, 0, w, 22)
-            )
-            self._delay_slider.setMinValue_(10)
-            self._delay_slider.setMaxValue_(500)
-            self._delay_slider.setIntValue_(cfg["paste_delay_ms"])
-            self._delay_slider.setTarget_(self)
-            self._delay_slider.setAction_("delaySliderChanged:")
-            cvs.add(self._delay_slider, height=22)
-            cvs.space(4)
-
-            desc = _label("How long to wait before pasting — increase if text gets pasted in the wrong place",
-                          font_size=11, color=Cocoa.NSColor.tertiaryLabelColor())
-            cvs.add(desc, height=14)
-
-        card2 = _card(card_w, delay_builder)
-        vs.add(card2, height=card2.frame().size.height)
 
         return _scrollable_section(container, vs, 1200)
 
@@ -671,65 +634,12 @@ class SettingsWindowController(Cocoa.NSObject):
                 self, "adaptiveSilenceChanged:", w,
                 description="Automatically stop when you finish speaking")
             cvs.add(r2, height=44)
-            cvs.add(_card_separator(w), height=1)
-
-            r3, self._confidence_review_switch = _toggle_row(
-                "Highlight Uncertain Words", cfg.get("confidence_review", False),
-                self, "confidenceReviewChanged:", w,
-                description="Mark words the app is less sure about so you can review them")
-            cvs.add(r3, height=44)
-            cvs.add(_card_separator(w), height=1)
-
-            r4, self._cadence_feedback_switch = _toggle_row(
-                "Speaking Tips", cfg.get("cadence_feedback", True),
-                self, "cadenceFeedbackChanged:", w,
-                description="Get tips on pacing and clarity after each recording")
-            cvs.add(r4, height=44)
 
         card3 = _card(card_w, intel_builder)
         vs.add(card3, height=card3.frame().size.height)
         vs.space(20)
 
-        # Card 4 — Ghostwriter
-        lbl4 = _section_label("Live Preview")
-        vs.add(lbl4, height=16)
-        vs.space(6)
-
-        def ghost_builder(cvs, w):
-            r1, self._ghostwriter_switch = _toggle_row(
-                "Live Preview", cfg.get("ghostwriter_enabled", True),
-                self, "ghostwriterEnabledChanged:", w,
-                description="See your words appear as you speak")
-            cvs.add(r1, height=44)
-            cvs.add(_card_separator(w), height=1)
-            cvs.space(8)
-
-            lbl = _label("Show text by", font_size=12,
-                         color=Cocoa.NSColor.secondaryLabelColor())
-            cvs.add(lbl, height=16)
-            cvs.space(8)
-
-            self._ghostwriter_seg = Cocoa.NSSegmentedControl.alloc().initWithFrame_(
-                Cocoa.NSMakeRect(0, 0, w, 28)
-            )
-            self._ghostwriter_seg.setSegmentCount_(3)
-            self._ghostwriter_seg.setLabel_forSegment_("Sentence", 0)
-            self._ghostwriter_seg.setLabel_forSegment_("Line", 1)
-            self._ghostwriter_seg.setLabel_forSegment_("Word", 2)
-            self._ghostwriter_seg.setSegmentStyle_(Cocoa.NSSegmentStyleRounded)
-            mode_map = {"sentence": 0, "line": 1, "word": 2}
-            self._ghostwriter_seg.setSelectedSegment_(
-                mode_map.get(cfg.get("ghostwriter_mode", "sentence"), 0)
-            )
-            self._ghostwriter_seg.setTarget_(self)
-            self._ghostwriter_seg.setAction_("ghostwriterModeChanged:")
-            cvs.add(self._ghostwriter_seg, height=28)
-
-        card4 = _card(card_w, ghost_builder)
-        vs.add(card4, height=card4.frame().size.height)
-        vs.space(20)
-
-        # Card 5 — Murmur Mode
+        # Card 4 — Murmur Mode
         lbl5 = _section_label("Quiet Voice")
         vs.add(lbl5, height=16)
         vs.space(6)
@@ -1102,11 +1012,6 @@ class SettingsWindowController(Cocoa.NSObject):
         models = ["base.en", "small.en"]
         config.set_value("model", models[sender.indexOfSelectedItem()])
 
-    def delaySliderChanged_(self, sender):
-        val = int(sender.intValue())
-        config.set_value("paste_delay_ms", val)
-        self._delay_label.setStringValue_(f"{val} ms")
-
     def searchChanged_(self, sender):
         query = str(self._search_field.stringValue()).strip()
         if query:
@@ -1154,21 +1059,6 @@ class SettingsWindowController(Cocoa.NSObject):
 
     def adaptiveSilenceChanged_(self, sender):
         config.set_value("adaptive_silence", bool(sender.state()))
-
-    def confidenceReviewChanged_(self, sender):
-        config.set_value("confidence_review", bool(sender.state()))
-
-    def cadenceFeedbackChanged_(self, sender):
-        config.set_value("cadence_feedback", bool(sender.state()))
-
-    def ghostwriterEnabledChanged_(self, sender):
-        config.set_value("ghostwriter_enabled", bool(sender.state()))
-
-    def ghostwriterModeChanged_(self, sender):
-        modes = ["sentence", "line", "word"]
-        idx = sender.selectedSegment()
-        if 0 <= idx < len(modes):
-            config.set_value("ghostwriter_mode", modes[idx])
 
     def murmurGainChanged_(self, sender):
         val = round(sender.floatValue(), 1)
@@ -1357,8 +1247,20 @@ class MenuBar(Cocoa.NSObject):
             Cocoa.NSVariableStatusItemLength
         )
         button = self._status_item.button()
-        button.setTitle_("M")
-        button.setFont_(Cocoa.NSFont.boldSystemFontOfSize_(14))
+
+        # Load menu bar icon from resources
+        icon_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "resources", "menubar-icon.png"
+        )
+        icon = Cocoa.NSImage.alloc().initWithContentsOfFile_(icon_path)
+        if icon:
+            icon.setSize_(Cocoa.NSMakeSize(18, 18))
+            icon.setTemplate_(True)
+            button.setImage_(icon)
+        else:
+            button.setTitle_("M")
+            button.setFont_(Cocoa.NSFont.boldSystemFontOfSize_(14))
 
         menu = Cocoa.NSMenu.alloc().init()
 

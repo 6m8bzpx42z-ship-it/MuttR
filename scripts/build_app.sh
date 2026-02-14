@@ -45,6 +45,11 @@ mkdir -p "${CONTENTS}/Resources"
 # Copy icon
 cp "${ICNS}" "${CONTENTS}/Resources/${APP_NAME}.icns"
 
+# Copy menu bar icon
+if [ -f "${PROJECT_ROOT}/resources/menubar-icon.png" ]; then
+    cp "${PROJECT_ROOT}/resources/menubar-icon.png" "${CONTENTS}/Resources/menubar-icon.png"
+fi
+
 # Create Info.plist
 cat > "${CONTENTS}/Info.plist" << PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -106,6 +111,7 @@ PYTHON="${VENV}/bin/python"
 # Set venv environment variables directly (avoids needing to source activate)
 export VIRTUAL_ENV="${VENV}"
 export PATH="${VENV}/bin:${PATH}"
+export PYTHONUNBUFFERED=1
 
 # Redirect output to log file for debugging
 LOG_DIR="${HOME}/Library/Logs/MuttR"
