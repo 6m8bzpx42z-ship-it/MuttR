@@ -4,7 +4,3 @@ numpy>=1.24.0
 pyobjc-core>=10.0
 pyobjc-framework-Cocoa>=10.0
 pyobjc-framework-Quartz>=10.0
-
-# Optional: Parakeet-MLX for Apple Silicon transcription
-# Install with: pip install parakeet-mlx
-parakeet-mlx>=0.5.0

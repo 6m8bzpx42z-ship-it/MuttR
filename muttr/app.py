@@ -47,31 +47,9 @@ class MuttRApp:
         app = Cocoa.NSApplication.sharedApplication()
         app.setActivationPolicy_(Cocoa.NSApplicationActivationPolicyAccessory)
 
-        # Load selected engine first, then preload the other in background
-        engine_label = self.transcriber.name.capitalize()
-        print(f"MuttR: Loading {engine_label} model...")
+        # Load Whisper model in background
+        print(f"MuttR: Loading Whisper model ({self._model_size})...")
         threading.Thread(target=self.transcriber.load, daemon=True).start()
-
-        # Preload the other engine so switching is instant
-        def _preload_other():
-            from muttr.transcriber import (
-                WhisperBackend, ParakeetBackend, _parakeet_available,
-            )
-            if self.transcriber.name != "whisper":
-                try:
-                    print("MuttR: Pre-downloading Whisper model in background...")
-                    wb = WhisperBackend(model_size=self._model_size)
-                    wb.load()
-                except Exception:
-                    pass
-            if self.transcriber.name != "parakeet" and _parakeet_available():
-                try:
-                    print("MuttR: Pre-downloading Parakeet model in background...")
-                    pb = ParakeetBackend()
-                    pb.load()
-                except Exception:
-                    pass
-        threading.Thread(target=_preload_other, daemon=True).start()
 
         self.overlay.setup()
         self.menubar.setup()

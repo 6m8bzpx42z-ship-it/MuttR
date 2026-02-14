@@ -108,11 +108,11 @@ class TestConfigLoad:
         cfg = load()
         assert cfg["transcription_engine"] == "whisper"
 
-    def test_load_accepts_valid_engine_parakeet(self):
+    def test_load_rejects_removed_engine_parakeet(self):
         with open(self._config_path, "w") as f:
             json.dump({"transcription_engine": "parakeet"}, f)
         cfg = load()
-        assert cfg["transcription_engine"] == "parakeet"
+        assert cfg["transcription_engine"] == "whisper"
 
 
 class TestConfigSave:

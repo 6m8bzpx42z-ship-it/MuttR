@@ -124,6 +124,10 @@ chmod +x "${CONTENTS}/MacOS/${APP_NAME}"
 echo "Built ${APP_DIR}"
 echo "Version: ${VERSION}"
 
+# Ad-hoc sign so macOS allows double-click launch
+echo "Signing..."
+codesign --force --deep --sign - "${APP_DIR}"
+
 # Install to /Applications
 echo "Installing to /Applications..."
 if [ -d "/Applications/${APP_NAME}.app" ]; then

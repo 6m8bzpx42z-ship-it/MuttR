@@ -34,7 +34,7 @@ DEFAULTS = {
 }
 
 VALID_MODELS = {"base.en", "small.en"}
-VALID_ENGINES = {"whisper", "parakeet"}
+VALID_ENGINES = {"whisper"}
 
 
 def _ensure_dir():

@@ -1,8 +1,6 @@
-"""Multi-backend transcription: Whisper (faster-whisper) and Parakeet-MLX."""
+"""Transcription backend: Whisper (faster-whisper)."""
 
 import logging
-import tempfile
-import wave
 from typing import Protocol
 
 import numpy as np
@@ -10,7 +8,6 @@ import numpy as np
 log = logging.getLogger(__name__)
 
 DEFAULT_MODEL = "base.en"
-PARAKEET_MODEL = "mlx-community/parakeet-tdt-0.6b-v3"
 SAMPLE_RATE = 16000
 
 
@@ -78,67 +75,6 @@ class WhisperBackend:
 
 
 # ---------------------------------------------------------------------------
-# Parakeet-MLX backend
-# ---------------------------------------------------------------------------
-
-def _parakeet_available() -> bool:
-    """Check whether parakeet-mlx can be imported."""
-    try:
-        import parakeet_mlx  # noqa: F401
-        return True
-    except ImportError:
-        return False
-
-
-class ParakeetBackend:
-    """Wraps parakeet-mlx (NVIDIA Parakeet on Apple MLX)."""
-
-    def __init__(self, model_id: str = PARAKEET_MODEL):
-        self._model_id = model_id
-        self._model = None
-        self._loading = False
-
-    @property
-    def name(self) -> str:
-        return "parakeet"
-
-    def load(self) -> None:
-        from parakeet_mlx import from_pretrained
-
-        self._loading = True
-        print(f"MuttR: Downloading/loading Parakeet model {self._model_id} (this may take a while on first use)...")
-        log.info("Loading Parakeet model %s ...", self._model_id)
-        self._model = from_pretrained(self._model_id)
-        self._loading = False
-        print("MuttR: Parakeet model ready.")
-        log.info("Parakeet model loaded.")
-
-    def transcribe(self, audio: np.ndarray, **kwargs) -> str:
-        if self._model is None:
-            self.load()
-
-        # parakeet-mlx.transcribe() expects a file path, so write a temp WAV
-        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
-            tmp_path = tmp.name
-            with wave.open(tmp_path, "wb") as wf:
-                wf.setnchannels(1)
-                wf.setsampwidth(2)  # 16-bit PCM
-                wf.setframerate(SAMPLE_RATE)
-                pcm = (audio * 32767).astype(np.int16)
-                wf.writeframes(pcm.tobytes())
-
-        try:
-            result = self._model.transcribe(tmp_path)
-            return result.text.strip()
-        finally:
-            import os
-            try:
-                os.unlink(tmp_path)
-            except OSError:
-                pass
-
-
-# ---------------------------------------------------------------------------
 # Legacy compat wrapper
 # ---------------------------------------------------------------------------
 
@@ -172,15 +108,5 @@ def create_transcriber(
     engine: str = "whisper",
     model_size: str = DEFAULT_MODEL,
 ) -> TranscriberBackend:
-    """Create the right backend based on engine name.
-
-    Falls back to Whisper if Parakeet is requested but not installed.
-    """
-    if engine == "parakeet":
-        if _parakeet_available():
-            return ParakeetBackend()
-        log.warning(
-            "Parakeet-MLX not installed; falling back to Whisper. "
-            "Install with: pip install parakeet-mlx"
-        )
+    """Create a Whisper transcription backend."""
     return WhisperBackend(model_size=model_size)

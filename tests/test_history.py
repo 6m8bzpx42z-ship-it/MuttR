@@ -79,14 +79,14 @@ class TestHistoryCRUD:
         assert history.count() == 0
 
     def test_entry_has_expected_fields(self):
-        history.add_entry("raw", "cleaned", engine="parakeet", duration_s=2.5)
+        history.add_entry("raw", "cleaned", engine="whisper", duration_s=2.5)
         entries = history.get_recent(limit=1)
         entry = entries[0]
         assert "id" in entry
         assert "timestamp" in entry
         assert entry["raw_text"] == "raw"
         assert entry["cleaned_text"] == "cleaned"
-        assert entry["engine"] == "parakeet"
+        assert entry["engine"] == "whisper"
         assert entry["duration_s"] == 2.5
 
     def test_default_engine_is_whisper(self):

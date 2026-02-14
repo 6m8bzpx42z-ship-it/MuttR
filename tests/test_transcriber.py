@@ -1,4 +1,4 @@
-"""Tests for muttr.transcriber -- multi-backend transcription factory."""
+"""Tests for muttr.transcriber -- Whisper transcription backend."""
 
 from unittest.mock import patch, MagicMock
 
@@ -7,7 +7,6 @@ import numpy as np
 
 from muttr.transcriber import (
     WhisperBackend,
-    ParakeetBackend,
     Transcriber,
     create_transcriber,
     DEFAULT_MODEL,
@@ -50,16 +49,6 @@ class TestWhisperBackend:
         assert "hello world" in result
 
 
-class TestParakeetBackend:
-    def test_name_is_parakeet(self):
-        backend = ParakeetBackend()
-        assert backend.name == "parakeet"
-
-    def test_model_not_loaded_initially(self):
-        backend = ParakeetBackend()
-        assert backend._model is None
-
-
 class TestCreateTranscriber:
     def test_default_creates_whisper(self):
         backend = create_transcriber()
@@ -74,16 +63,6 @@ class TestCreateTranscriber:
         assert isinstance(backend, WhisperBackend)
         assert backend._model_size == "small.en"
 
-    @patch("muttr.transcriber._parakeet_available", return_value=True)
-    def test_parakeet_when_available(self, mock_avail):
-        backend = create_transcriber(engine="parakeet")
-        assert isinstance(backend, ParakeetBackend)
-
-    @patch("muttr.transcriber._parakeet_available", return_value=False)
-    def test_parakeet_fallback_to_whisper(self, mock_avail):
-        backend = create_transcriber(engine="parakeet")
-        assert isinstance(backend, WhisperBackend)
-
     def test_unknown_engine_creates_whisper(self):
         backend = create_transcriber(engine="unknown_engine")
         assert isinstance(backend, WhisperBackend)
@@ -96,17 +75,6 @@ class TestTranscriberLegacyWrapper:
 
     def test_name_property(self):
         t = Transcriber(engine="whisper")
-        assert t.name == "whisper"
-
-    @patch("muttr.transcriber._parakeet_available", return_value=True)
-    def test_parakeet_engine(self, mock_avail):
-        t = Transcriber(engine="parakeet")
-        assert t.name == "parakeet"
-
-    @patch("muttr.transcriber._parakeet_available", return_value=False)
-    def test_parakeet_fallback(self, mock_avail):
-        t = Transcriber(engine="parakeet")
-        # Falls back to whisper
         assert t.name == "whisper"
 
     def test_delegates_load(self):
