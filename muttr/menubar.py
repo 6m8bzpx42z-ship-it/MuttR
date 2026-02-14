@@ -168,7 +168,7 @@ class _VStack:
 # Card builder
 # ---------------------------------------------------------------------------
 
-def _card(width, content_builder):
+def _card(width, content_builder, fill_color=None):
     """Rounded-rect card using NSBox."""
     CARD_PAD_H = 20
     CARD_PAD_V = 14
@@ -178,7 +178,7 @@ def _card(width, content_builder):
     )
     card.setBoxType_(Cocoa.NSBoxCustom)
     card.setCornerRadius_(10)
-    card.setFillColor_(Cocoa.NSColor.controlBackgroundColor())
+    card.setFillColor_(fill_color or Cocoa.NSColor.controlBackgroundColor())
     card.setBorderWidth_(0)
     card.setContentViewMargins_(Cocoa.NSMakeSize(0, 0))
 
@@ -188,7 +188,7 @@ def _card(width, content_builder):
     inner_width = width - CARD_PAD_H * 2
     vs = _VStack(content, 2000 - CARD_PAD_V, left=CARD_PAD_H, width=inner_width)
     content_builder(vs, inner_width)
-    used = (2000 - CARD_PAD_V) - vs.cursor + CARD_PAD_V
+    used = 2000 - vs.cursor + CARD_PAD_V
     card.setFrameSize_(Cocoa.NSMakeSize(width, used))
     content.setFrameSize_(Cocoa.NSMakeSize(width, used))
 
@@ -890,32 +890,64 @@ class SettingsWindowController(Cocoa.NSObject):
         content_w = WINDOW_WIDTH - SIDEBAR_WIDTH
         card_w = content_w - CONTENT_PAD * 2
         card_gap = 10
-        card_h = 72
-        n = len(self._history_data)
-        total_h = max(n * (card_h + card_gap) + CONTENT_PAD, 10)
-        self._history_container.setFrameSize_(Cocoa.NSMakeSize(content_w, total_h))
 
+        # Subtle shadow for each card (Wispr Flow style)
+        shadow = Cocoa.NSShadow.alloc().init()
+        shadow.setShadowColor_(
+            Cocoa.NSColor.shadowColor().colorWithAlphaComponent_(0.08)
+        )
+        shadow.setShadowOffset_(Cocoa.NSMakeSize(0, -1))
+        shadow.setShadowBlurRadius_(3)
+
+        # Build cards first to get their actual heights
+        cards = []
         for i, entry in enumerate(self._history_data):
-            y = total_h - (i + 1) * (card_h + card_gap)
-
             def entry_builder(cvs, w, e=entry):
-                # Time badge + engine
-                time_str = _ts_relative(e["timestamp"])
-                engine = e.get("engine", "whisper")
-                meta = _label(f"{time_str}  \u00b7  {engine}", font_size=11,
-                              color=Cocoa.NSColor.tertiaryLabelColor())
-                cvs.add(meta, height=16)
-                cvs.space(4)
-
+                # Transcription text first (primary content)
                 text = e.get("cleaned_text") or e.get("raw_text", "")
-                preview = text[:140] + ("\u2026" if len(text) > 140 else "")
-                txt = _label(preview, font_size=13)
-                txt.setFrame_(Cocoa.NSMakeRect(0, 0, w, 28))
-                txt.setLineBreakMode_(Cocoa.NSLineBreakByTruncatingTail)
-                cvs.add(txt, height=28)
+                txt = Cocoa.NSTextField.alloc().initWithFrame_(
+                    Cocoa.NSMakeRect(0, 0, w, 18)
+                )
+                txt.setStringValue_(text)
+                txt.setFont_(Cocoa.NSFont.systemFontOfSize_(13.5))
+                txt.setTextColor_(Cocoa.NSColor.labelColor())
+                txt.setEditable_(False)
+                txt.setSelectable_(True)
+                txt.setDrawsBackground_(False)
+                txt.setBezeled_(False)
+                txt.cell().setWraps_(True)
+                txt.cell().setLineBreakMode_(Cocoa.NSLineBreakByWordWrapping)
+                # Calculate wrapped height using the cell
+                cell_size = txt.cell().cellSizeForBounds_(
+                    Cocoa.NSMakeRect(0, 0, w, 10000)
+                )
+                text_h = max(cell_size.height, 18)
+                txt.setFrame_(Cocoa.NSMakeRect(0, 0, w, text_h))
+                cvs.add(txt, height=text_h)
+
+                cvs.space(8)
+
+                # Metadata below (secondary — timestamp)
+                time_str = _ts_relative(e["timestamp"])
+                meta = _label(time_str, font_size=11,
+                              color=Cocoa.NSColor.tertiaryLabelColor())
+                cvs.add(meta, height=14)
 
             c = _card(card_w, entry_builder)
-            c.setFrameOrigin_(Cocoa.NSMakePoint(CONTENT_PAD, y))
+            c.setShadow_(shadow)
+            cards.append(c)
+
+        total_h = max(
+            sum(c.frame().size.height + card_gap for c in cards) + CONTENT_PAD,
+            10,
+        )
+        self._history_container.setFrameSize_(Cocoa.NSMakeSize(content_w, total_h))
+
+        y_cursor = total_h
+        for c in cards:
+            ch = c.frame().size.height
+            y_cursor -= ch + card_gap
+            c.setFrameOrigin_(Cocoa.NSMakePoint(CONTENT_PAD, y_cursor))
             self._history_container.addSubview_(c)
 
         # Scroll to top
