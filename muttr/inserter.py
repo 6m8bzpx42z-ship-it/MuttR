@@ -16,8 +16,10 @@ def insert_text(text):
     """Insert text into the active app by pasting from clipboard."""
     prefs = account.load_account()["preferences"]
     if not prefs.get("auto_copy", True):
+        print("MuttR: auto_copy disabled, skipping paste")
         return  # auto-copy disabled; user can paste from history manually
 
+    print(f"MuttR: Inserting text ({len(text)} chars)")
     pasteboard = Cocoa.NSPasteboard.generalPasteboard()
 
     # Save original clipboard contents
@@ -37,7 +39,9 @@ def insert_text(text):
     time.sleep(config.get("paste_delay_ms", 60) / 1000.0)
 
     # Simulate Cmd+V
+    print("MuttR: Simulating Cmd+V")
     _simulate_cmd_v()
+    print("MuttR: Cmd+V sent")
 
     # Wait for paste to complete, then restore clipboard
     time.sleep(config.get("paste_delay_ms", 60) / 1000.0)

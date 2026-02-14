@@ -25,6 +25,16 @@ from muttr import sounds
 from muttr import config, history, account, budget, ghostwriter
 
 
+class AppDelegate(Cocoa.NSObject):
+    """Keeps the app alive when launched as a .app bundle."""
+
+    def applicationShouldTerminate_(self, sender):
+        return Cocoa.NSTerminateNow
+
+    def applicationDidFinishLaunching_(self, notification):
+        pass
+
+
 class MuttRApp:
     def __init__(self):
         self._cfg = config.load()
@@ -55,6 +65,10 @@ class MuttRApp:
     def run(self):
         app = Cocoa.NSApplication.sharedApplication()
         app.setActivationPolicy_(Cocoa.NSApplicationActivationPolicyAccessory)
+
+        # Set delegate to keep the app alive when launched as .app bundle
+        self._delegate = AppDelegate.alloc().init()
+        app.setDelegate_(self._delegate)
 
         # Load Whisper model in background
         print(f"MuttR: Loading Whisper model ({self._model_size})...")

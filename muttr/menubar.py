@@ -1,11 +1,10 @@
 """Menu bar status item + settings window with history and account panels."""
 
-import os
-
 import Cocoa
 import objc
 
 from muttr import config, history, account, budget
+from muttr.resources import get_resource_path
 
 
 # ---------------------------------------------------------------------------
@@ -1249,10 +1248,7 @@ class MenuBar(Cocoa.NSObject):
         button = self._status_item.button()
 
         # Load menu bar icon from resources
-        icon_path = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-            "resources", "menubar-icon.png"
-        )
+        icon_path = get_resource_path("menubar-icon.png")
         icon = Cocoa.NSImage.alloc().initWithContentsOfFile_(icon_path)
         if icon:
             icon.setSize_(Cocoa.NSMakeSize(18, 18))
