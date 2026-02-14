@@ -24,6 +24,8 @@ DEFAULTS = {
     "murmur_gain": 3.0,
     "murmur_noise_gate_db": -50.0,
     "murmur_min_utterance_ms": 80,
+    # First-run onboarding
+    "onboarding_completed": False,
 }
 
 VALID_MODELS = {"base.en", "small.en"}

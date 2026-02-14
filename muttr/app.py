@@ -76,6 +76,12 @@ class MuttRApp:
 
         self.overlay.setup()
         self.menubar.setup()
+
+        if not config.get("onboarding_completed", False):
+            from muttr.onboarding import OnboardingWindowController
+            self._onboarding = OnboardingWindowController.alloc().init()
+            self._onboarding.show()
+
         self.hotkey.start()
 
         print("MuttR: Ready. Hold fn to record, release to transcribe.")
@@ -230,11 +236,14 @@ class MuttRApp:
 
             cleaned = clean_text(result.text, level=self.cleanup_level)
 
+            if not cleaned or not cleaned.strip():
+                return  # nothing to insert or log
+
             # Log to history
             try:
                 history.add_entry(
                     raw_text=result.text or "",
-                    cleaned_text=cleaned or "",
+                    cleaned_text=cleaned,
                     engine=engine,
                     duration_s=round(duration, 2),
                 )
@@ -243,7 +252,7 @@ class MuttRApp:
 
             # Cadence coaching feedback
             try:
-                if config.get("cadence_feedback", True) and cleaned:
+                if config.get("cadence_feedback", True):
                     metrics = SpeechMetrics.analyze(audio, cleaned, duration)
                     profile = load_speech_profile()
                     profile.update(metrics)
@@ -254,21 +263,20 @@ class MuttRApp:
             except Exception:
                 pass
 
-            if cleaned:
-                # Check word budget before inserting
-                word_count = len(cleaned.split())
-                if budget.is_over_budget():
-                    print("MuttR: Word budget exceeded — upgrade for more words")
-                    self._perform_on_main(self._show_budget_exceeded)
-                    return
+            # Check word budget before inserting
+            word_count = len(cleaned.split())
+            if budget.is_over_budget():
+                print("MuttR: Word budget exceeded — upgrade for more words")
+                self._perform_on_main(self._show_budget_exceeded)
+                return
 
-                self._perform_on_main(lambda: insert_text(cleaned))
+            self._perform_on_main(lambda: insert_text(cleaned))
 
-                # Record usage after successful insert
-                try:
-                    budget.record_usage(word_count)
-                except Exception:
-                    pass
+            # Record usage after successful insert
+            try:
+                budget.record_usage(word_count)
+            except Exception:
+                pass
 
         except Exception as e:
             print(f"MuttR: Transcription error: {e}")
