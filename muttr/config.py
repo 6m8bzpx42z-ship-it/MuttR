@@ -10,17 +10,11 @@ DEFAULTS = {
     "cleanup_level": 1,
     "model": "base.en",
     "paste_delay_ms": 60,
-    "transcription_timeout_s": 20,
-    "setup_complete": False,
     "transcription_engine": "whisper",
     # Context stitching: use clipboard + history to prime Whisper
     "context_stitching": True,
     # Adaptive silence: learn user's speaking cadence for auto-stop
     "adaptive_silence": True,
-    # Confidence review: show heatmap overlay for low-confidence words
-    "confidence_review": False,
-    "confidence_threshold": 0.7,
-    "confidence_review_timeout_s": 3,
     # Ghostwriter: voice-driven text replacement
     "ghostwriter_enabled": True,
     "ghostwriter_mode": "sentence",  # "sentence", "line", or "word"
@@ -30,7 +24,6 @@ DEFAULTS = {
     "murmur_gain": 3.0,
     "murmur_noise_gate_db": -50.0,
     "murmur_min_utterance_ms": 80,
-    "murmur_active": False,
 }
 
 VALID_MODELS = {"base.en", "small.en"}
@@ -60,7 +53,6 @@ def load():
     if data.get("transcription_engine") not in VALID_ENGINES:
         data["transcription_engine"] = DEFAULTS["transcription_engine"]
     data["paste_delay_ms"] = max(10, min(500, int(data.get("paste_delay_ms", 60))))
-    data["transcription_timeout_s"] = max(5, min(120, int(data.get("transcription_timeout_s", 20))))
 
     return data
 

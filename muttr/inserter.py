@@ -5,6 +5,8 @@ import time
 import Cocoa
 import Quartz
 
+from muttr import config, account
+
 
 # Virtual keycode for 'V'
 kVK_V = 0x09
@@ -12,6 +14,10 @@ kVK_V = 0x09
 
 def insert_text(text):
     """Insert text into the active app by pasting from clipboard."""
+    prefs = account.load_account()["preferences"]
+    if not prefs.get("auto_copy", True):
+        return  # auto-copy disabled; user can paste from history manually
+
     pasteboard = Cocoa.NSPasteboard.generalPasteboard()
 
     # Save original clipboard contents
@@ -28,13 +34,13 @@ def insert_text(text):
     pasteboard.setString_forType_(text, Cocoa.NSPasteboardTypeString)
 
     # Small delay to ensure clipboard is ready
-    time.sleep(0.05)
+    time.sleep(config.get("paste_delay_ms", 60) / 1000.0)
 
     # Simulate Cmd+V
     _simulate_cmd_v()
 
     # Wait for paste to complete, then restore clipboard
-    time.sleep(0.1)
+    time.sleep(config.get("paste_delay_ms", 60) / 1000.0)
     _restore_clipboard(pasteboard, old_data)
 
 

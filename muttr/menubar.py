@@ -5,7 +5,7 @@ import os
 import Cocoa
 import objc
 
-from muttr import config, history, account
+from muttr import config, history, account, budget
 
 
 # ---------------------------------------------------------------------------
@@ -1256,13 +1256,22 @@ class MenuBar(Cocoa.NSObject):
         icon = Cocoa.NSImage.alloc().initWithContentsOfFile_(icon_path)
         if icon:
             icon.setSize_(Cocoa.NSMakeSize(18, 18))
-            icon.setTemplate_(True)
             button.setImage_(icon)
         else:
             button.setTitle_("M")
             button.setFont_(Cocoa.NSFont.boldSystemFontOfSize_(14))
 
         menu = Cocoa.NSMenu.alloc().init()
+        menu.setDelegate_(self)
+
+        # Word budget status (updated dynamically via menuNeedsUpdate:)
+        self._budget_item = Cocoa.NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(
+            "", None, ""
+        )
+        self._budget_item.setEnabled_(False)
+        menu.addItem_(self._budget_item)
+
+        menu.addItem_(Cocoa.NSMenuItem.separatorItem())
 
         settings_item = Cocoa.NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(
             "Settings\u2026", "openSettings:", ","
@@ -1279,6 +1288,17 @@ class MenuBar(Cocoa.NSObject):
         menu.addItem_(quit_item)
 
         self._status_item.setMenu_(menu)
+
+    def menuNeedsUpdate_(self, menu):
+        """Update dynamic menu items before display."""
+        try:
+            remaining = budget.words_remaining_today()
+            if remaining is None:
+                self._budget_item.setTitle_("Unlimited words")
+            else:
+                self._budget_item.setTitle_(f"{remaining:,} words left today")
+        except Exception:
+            self._budget_item.setTitle_("Words: --")
 
     def openSettings_(self, sender):
         self._settings_controller.show()
