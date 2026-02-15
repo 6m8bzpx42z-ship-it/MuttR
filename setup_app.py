@@ -28,6 +28,9 @@ OPTIONS = {
         "NSMicrophoneUsageDescription": (
             "MuttR needs microphone access for voice dictation."
         ),
+        "NSAccessibilityUsageDescription": (
+            "MuttR needs accessibility access to paste transcribed text into your active window."
+        ),
         "NSHighResolutionCapable": True,
     },
     "frameworks": [

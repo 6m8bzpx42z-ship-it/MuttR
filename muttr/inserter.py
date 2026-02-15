@@ -44,6 +44,8 @@ def _simulate_cmd_v():
     Quartz.CGEventSetFlags(cmd_v_down, Quartz.kCGEventFlagMaskCommand)
     Quartz.CGEventPost(Quartz.kCGSessionEventTap, cmd_v_down)
 
+    time.sleep(0.05)  # 50ms between key-down and key-up for slower machines
+
     # Key up
     cmd_v_up = Quartz.CGEventCreateKeyboardEvent(source, kVK_V, False)
     Quartz.CGEventSetFlags(cmd_v_up, Quartz.kCGEventFlagMaskCommand)

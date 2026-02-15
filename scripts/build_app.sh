@@ -34,9 +34,10 @@ cd "${PROJECT_ROOT}"
 
 echo "Built dist/${APP_NAME}.app"
 
-# Ad-hoc codesign
-echo "Signing..."
-codesign --force --deep --sign - "dist/${APP_NAME}.app"
+# Ad-hoc codesign with entitlements
+ENTITLEMENTS="${PROJECT_ROOT}/resources/MuttR.entitlements"
+echo "Signing with entitlements..."
+codesign --force --deep --sign - --entitlements "${ENTITLEMENTS}" "dist/${APP_NAME}.app"
 
 # Install to /Applications
 echo "Installing to /Applications..."
@@ -45,9 +46,20 @@ if [ -d "/Applications/${APP_NAME}.app" ]; then
 fi
 cp -R "dist/${APP_NAME}.app" "/Applications/${APP_NAME}.app"
 
+# Strip quarantine flag so macOS doesn't translocate the app
+echo "Removing quarantine flag..."
+xattr -dr com.apple.quarantine "/Applications/${APP_NAME}.app" 2>/dev/null || true
+
+# Reset stale TCC entries so Accessibility permission matches new build
+echo "Resetting Accessibility permissions (re-grant on next launch)..."
+tccutil reset Accessibility com.muttr.app 2>/dev/null || true
+
 echo "Installed to /Applications/${APP_NAME}.app"
 echo ""
 echo "You can now launch MuttR from:"
 echo "  - Spotlight (Cmd+Space, type 'MuttR')"
 echo "  - Launchpad"
 echo "  - /Applications/MuttR.app"
+echo ""
+echo "NOTE: You will need to grant Accessibility permission on first launch."
+echo "  System Settings > Privacy & Security > Accessibility > Enable MuttR"
