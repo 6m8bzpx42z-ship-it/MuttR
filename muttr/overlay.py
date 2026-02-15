@@ -161,6 +161,7 @@ class SpriteView(Cocoa.NSView):
         self._state = "idle"
         self._level = 0.0
         self._smoothed_level = 0.0
+        self._smoothed_motion = 0.0  # extra-smooth value for transform effects
         self._tick = 0  # render tick counter for frame pacing
         return self
 
@@ -181,8 +182,8 @@ class SpriteView(Cocoa.NSView):
     def tick(self):
         """Called at 30 FPS. Advance sprite frame at variable rate."""
         self._tick += 1
-        # Speaking = advance every ~15 ticks (~2 FPS), silent = every ~30 (~1 FPS)
-        interval = 15 if self._smoothed_level > 0.02 else 30
+        # 3-frame ear-flop loop (~1s per frame, full cycle ~3s)
+        interval = 30
         if self._frames and self._tick >= interval:
             self._tick = 0
             self._frame_idx = (self._frame_idx + 1) % len(self._frames)
@@ -232,7 +233,7 @@ class SpriteView(Cocoa.NSView):
                 ).setFill()
                 Cocoa.NSBezierPath.bezierPathWithOvalInRect_(glow_rect).fill()
 
-        # --- Draw current sprite frame ---
+        # --- Draw current sprite frame with programmatic motion ---
         img = self._frames[self._frame_idx]
         img_size = img.size()
         img_area_h = h - _SPRITE_LABEL_H
@@ -242,10 +243,41 @@ class SpriteView(Cocoa.NSView):
         draw_x = (w - draw_w) / 2
         draw_y = _SPRITE_LABEL_H + (img_area_h - draw_h) / 2
 
+        t = time.time()
+
+        # Boost low audio levels so even quiet speech gets a strong response
+        boosted_target = math.sqrt(min(1.0, level * 10.0)) if level > 0.005 else 0.0
+        # Smooth the motion value heavily — 93% old / 7% new for buttery easing
+        self._smoothed_motion = self._smoothed_motion * 0.93 + boosted_target * 0.07
+        motion = self._smoothed_motion
+
+        # 1. Breathing / scale pulse
+        idle_breath = math.sin(t * math.pi) * 0.02  # gentle 0.5 Hz oscillation
+        speak_scale = motion * 0.22
+        scale_factor = 1.0 + idle_breath + speak_scale
+
+        # 2. Vertical bounce
+        bounce_y = motion * 12.0
+
+        # 3. Head tilt — slow deliberate cock to one side, not fast wobble
+        tilt_rad = motion * 6.0 * math.sin(t * 3 * math.pi) * (math.pi / 180)
+
+        # Apply transform: translate to sprite center, rotate, scale, translate back
+        xf = Cocoa.NSAffineTransform.transform()
+        cx = draw_x + draw_w / 2
+        cy = draw_y + draw_h / 2 + bounce_y
+        xf.translateXBy_yBy_(cx, cy)
+        xf.rotateByRadians_(tilt_rad)
+        xf.scaleBy_(scale_factor)
+        xf.translateXBy_yBy_(-cx, -cy)
+
+        Cocoa.NSGraphicsContext.saveGraphicsState()
+        xf.concat()
         draw_rect = Cocoa.NSMakeRect(draw_x, draw_y, draw_w, draw_h)
         img.drawInRect_fromRect_operation_fraction_(
             draw_rect, Cocoa.NSZeroRect, Cocoa.NSCompositingOperationSourceOver, 1.0
         )
+        Cocoa.NSGraphicsContext.restoreGraphicsState()
 
         # --- Status label + live dots in label area ---
         if self._state == "recording":
