@@ -232,7 +232,6 @@ def add_proper_nouns(nouns: dict[str, str]) -> None:
 FILLER_WORDS = [
     r"\bum\b",
     r"\buh\b",
-    r"\blike\b",
     r"\byou know\b",
     r"\bbasically\b",
     r"\bactually\b",
@@ -246,6 +245,20 @@ FILLER_PATTERN = re.compile(
     r",?\s*(?:" + "|".join(FILLER_WORDS) + r")\s*,?\s*",
     re.IGNORECASE,
 )
+
+# "like" needs context-aware handling: filler ("I was like going") vs
+# comparison ("looks like a cat") vs verb ("I like pizza").
+# Strategy: protect known non-filler patterns, strip the rest, restore.
+_LIKE_PROTECT = re.compile(
+    r"\b(looks?|looking|feels?|felt|feeling|seems?|seemed|seeming"
+    r"|sounds?|sounded|sounding|smells?|smelled|tastes?|tasted"
+    r"|just|more|much"
+    r"|something|anything|nothing|everything"
+    r"|[Ii]|you|we|they|he|she|it)\s+(like)\b",
+    re.IGNORECASE,
+)
+_LIKE_FILLER = re.compile(r",?\s*\blike\b\s*,?\s*", re.IGNORECASE)
+_LIKE_SENTINEL = "\x00COMP\x00"
 
 # ---------------------------------------------------------------------------
 # Paragraph / line-break commands
@@ -576,7 +589,12 @@ def _remove_false_starts(text: str) -> str:
 
 def _remove_fillers(text: str) -> str:
     """Strip filler words with surrounding punctuation/whitespace."""
-    return FILLER_PATTERN.sub(" ", text)
+    text = FILLER_PATTERN.sub(" ", text)
+    # Context-aware "like" removal: protect comparison/verb uses, strip filler.
+    text = _LIKE_PROTECT.sub(lambda m: m.group(1) + " " + _LIKE_SENTINEL, text)
+    text = _LIKE_FILLER.sub(" ", text)
+    text = text.replace(_LIKE_SENTINEL, "like")
+    return text
 
 
 def _sentence_case(text: str) -> str:

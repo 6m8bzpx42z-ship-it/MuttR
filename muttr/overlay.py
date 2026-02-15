@@ -51,10 +51,6 @@ CORNER_RADIUS = 22
 BAR_COUNT = 5
 BG_COLOR = (0.15, 0.15, 0.15, 0.85)
 
-# Animation rate for sprite frames (fps)
-SPRITE_FPS = 3
-
-
 # ---------------------------------------------------------------------------
 # Waveform view (fallback when no sprite frames exist)
 # ---------------------------------------------------------------------------
@@ -163,6 +159,9 @@ class SpriteView(Cocoa.NSView):
         self._frames = []
         self._frame_idx = 0
         self._state = "idle"
+        self._level = 0.0
+        self._smoothed_level = 0.0
+        self._tick = 0  # render tick counter for frame pacing
         return self
 
     def setFrames_(self, frames):
@@ -170,23 +169,36 @@ class SpriteView(Cocoa.NSView):
         self._frame_idx = 0
         self.setNeedsDisplay_(True)
 
+    def setLevel_(self, level):
+        self._level = level
+        self._smoothed_level = self._smoothed_level * 0.7 + level * 0.3
+        self.setNeedsDisplay_(True)
+
     def setState_(self, state):
         self._state = state
         self.setNeedsDisplay_(True)
 
-    def advance(self):
-        """Move to the next frame in the loop."""
-        if self._frames:
+    def tick(self):
+        """Called at 30 FPS. Advance sprite frame at variable rate."""
+        self._tick += 1
+        # Speaking = advance every ~15 ticks (~2 FPS), silent = every ~30 (~1 FPS)
+        interval = 15 if self._smoothed_level > 0.02 else 30
+        if self._frames and self._tick >= interval:
+            self._tick = 0
             self._frame_idx = (self._frame_idx + 1) % len(self._frames)
-            self.setNeedsDisplay_(True)
+        self.setNeedsDisplay_(True)
 
     def drawRect_(self, rect):
+        import math
+        import time
+
         if self._state == "idle" or not self._frames:
             return
 
         bounds = self.bounds()
         w = bounds.size.width
         h = bounds.size.height
+        level = self._smoothed_level
 
         # Draw rounded background
         path = Cocoa.NSBezierPath.bezierPathWithRoundedRect_xRadius_yRadius_(
@@ -199,7 +211,28 @@ class SpriteView(Cocoa.NSView):
         Cocoa.NSGraphicsContext.saveGraphicsState()
         path.addClip()
 
-        # Draw current frame in upper area (above label)
+        # --- Soft pulsing glow behind the dog ---
+        # Draw concentric ovals from large (faint) to small (brighter)
+        # to simulate a radial gradient glow. Scales with audio level.
+        if level > 0.002:
+            cx = w / 2
+            cy = _SPRITE_LABEL_H + (h - _SPRITE_LABEL_H) / 2
+            # Clamp level into a usable 0-1 intensity range
+            intensity = min(1.0, level * 8.0)
+            layers = 5
+            max_radius = 50 + intensity * 20
+            for ring in range(layers):
+                # ring 0 = outermost (biggest, faintest), ring 4 = innermost
+                t_ring = ring / (layers - 1)  # 0.0 outer → 1.0 inner
+                r = max_radius * (1.0 - t_ring * 0.6)  # outer=full, inner=40%
+                a = intensity * (0.03 + t_ring * 0.12)  # outer=0.03, inner=0.15
+                glow_rect = Cocoa.NSMakeRect(cx - r, cy - r, r * 2, r * 2)
+                Cocoa.NSColor.colorWithCalibratedRed_green_blue_alpha_(
+                    1.0, 0.5, 0.3, a
+                ).setFill()
+                Cocoa.NSBezierPath.bezierPathWithOvalInRect_(glow_rect).fill()
+
+        # --- Draw current sprite frame ---
         img = self._frames[self._frame_idx]
         img_size = img.size()
         img_area_h = h - _SPRITE_LABEL_H
@@ -214,9 +247,9 @@ class SpriteView(Cocoa.NSView):
             draw_rect, Cocoa.NSZeroRect, Cocoa.NSCompositingOperationSourceOver, 1.0
         )
 
-        # Draw status label at bottom
+        # --- Status label + live dots in label area ---
         if self._state == "recording":
-            label = "Listening..."
+            label = "Listening"
         else:
             label = "Working..."
 
@@ -231,10 +264,44 @@ class SpriteView(Cocoa.NSView):
         attr_str = Cocoa.NSAttributedString.alloc().initWithString_attributes_(
             label, attrs
         )
-        size = attr_str.size()
-        label_x = (w - size.width) / 2
-        label_y = (_SPRITE_LABEL_H - size.height) / 2
-        attr_str.drawAtPoint_(Cocoa.NSMakePoint(label_x, label_y))
+        text_size = attr_str.size()
+
+        if self._state == "recording":
+            # Draw label + dots together, centered as a unit
+            t = time.time()
+            dot_count = 3
+            dot_r = 1.5
+            dot_gap = 3.5
+            dots_w = dot_count * dot_r * 2 + (dot_count - 1) * dot_gap
+            spacing = 4.0  # gap between text and dots
+            total_unit_w = text_size.width + spacing + dots_w
+
+            label_x = (w - total_unit_w) / 2
+            label_y = (_SPRITE_LABEL_H - text_size.height) / 2
+            attr_str.drawAtPoint_(Cocoa.NSMakePoint(label_x, label_y))
+
+            # Dots to the right of the label, vertically centered on text
+            dots_start_x = label_x + text_size.width + spacing
+            dot_center_y = label_y + text_size.height / 2
+
+            Cocoa.NSColor.colorWithCalibratedRed_green_blue_alpha_(
+                1.0, 1.0, 1.0, 0.7
+            ).setFill()
+
+            for i in range(dot_count):
+                phase = math.sin(t * 5 + i * 0.9) * 0.5 + 0.5
+                bounce = min(level * 60, 3.0) * phase
+                dcx = dots_start_x + i * (dot_r * 2 + dot_gap) + dot_r
+                dcy = dot_center_y + bounce
+                dot_rect = Cocoa.NSMakeRect(
+                    dcx - dot_r, dcy - dot_r, dot_r * 2, dot_r * 2,
+                )
+                Cocoa.NSBezierPath.bezierPathWithOvalInRect_(dot_rect).fill()
+        else:
+            # Non-recording: just center the label
+            label_x = (w - text_size.width) / 2
+            label_y = (_SPRITE_LABEL_H - text_size.height) / 2
+            attr_str.drawAtPoint_(Cocoa.NSMakePoint(label_x, label_y))
 
         Cocoa.NSGraphicsContext.restoreGraphicsState()
 
@@ -329,9 +396,8 @@ class Overlay:
         self._panel.orderOut_(None)
 
     def update_level(self, level):
-        """Update audio level for waveform animation."""
-        if not self._use_sprites:
-            self._view.setLevel_(level)
+        """Update audio level for waveform/sprite animation."""
+        self._view.setLevel_(level)
 
     def _start_waveform_animation(self):
         self._stop_animation()
@@ -344,9 +410,9 @@ class Overlay:
     def _start_sprite_animation(self):
         self._stop_animation()
         self._timer = Cocoa.NSTimer.scheduledTimerWithTimeInterval_repeats_block_(
-            1.0 / SPRITE_FPS,
+            1.0 / 30,  # 30 FPS render loop; frame advance is tick-paced inside SpriteView
             True,
-            lambda timer: self._view.advance(),
+            lambda timer: self._view.tick(),
         )
 
     def _stop_animation(self):
