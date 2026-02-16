@@ -54,6 +54,7 @@ class MuttRApp:
             on_triple_tap=self._on_triple_tap,
         )
         self._record_start = None
+        self._model_ready = threading.Event()
         self._cadence_tracker: CadenceTracker | None = None
         self._murmur = MurmurMode()
         self._ghostwriter_active = False
@@ -72,7 +73,11 @@ class MuttRApp:
 
         # Load Whisper model in background
         print(f"MuttR: Loading Whisper model ({self._model_size})...")
-        threading.Thread(target=self.transcriber.load, daemon=True).start()
+        def _load_model():
+            self.transcriber.load()
+            self._model_ready.set()
+            print("MuttR: Model loaded and ready.")
+        threading.Thread(target=_load_model, daemon=True).start()
 
         self.overlay.setup()
         self.menubar.setup()
@@ -99,8 +104,13 @@ class MuttRApp:
         print(f"MuttR: Switching engine {self._engine_name} -> {new_engine}")
         self._engine_name = new_engine
         self._model_size = new_model
+        self._model_ready.clear()
         self.transcriber = create_transcriber(engine=new_engine, model_size=new_model)
-        threading.Thread(target=self.transcriber.load, daemon=True).start()
+        def _load_model():
+            self.transcriber.load()
+            self._model_ready.set()
+            print("MuttR: Model loaded and ready.")
+        threading.Thread(target=_load_model, daemon=True).start()
 
     # ------------------------------------------------------------------
     # Hotkey callbacks
@@ -108,6 +118,9 @@ class MuttRApp:
 
     def _on_fn_down(self):
         """Called when fn key is pressed — start recording."""
+        if not self._model_ready.is_set():
+            print("MuttR: Model still loading, please wait...")
+            return
         self.reload_engine_if_changed()
         self._record_start = _time.time()
         # Start cadence tracking for this session
