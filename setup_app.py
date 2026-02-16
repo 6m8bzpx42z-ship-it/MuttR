@@ -21,8 +21,8 @@ OPTIONS = {
         "CFBundleName": "MuttR",
         "CFBundleDisplayName": "MuttR",
         "CFBundleIdentifier": "com.muttr.app",
-        "CFBundleVersion": "0.1.0",
-        "CFBundleShortVersionString": "0.1.0",
+        "CFBundleVersion": "0.6.1",
+        "CFBundleShortVersionString": "0.6.1",
         "LSUIElement": True,
         "LSMinimumSystemVersion": "13.0",
         "NSMicrophoneUsageDescription": (
